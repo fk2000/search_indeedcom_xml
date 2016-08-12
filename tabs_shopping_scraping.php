@@ -12,29 +12,46 @@ class Tabs_shopping_scraping
 	const MAN_PAGE = 'uomo.html';
 	const IDEA_PAGE = 'idee.html';
 
+	private $pdo;
+
+	function __construct() {
+
+		try{
+			$dsn = 'mysql:dbname=vagrant_db;host=localhost;charset=utf8';
+			$user = 'root';
+			$password = '';
+			$this->pdo = new PDO($dsn, $user, $password);
+		}catch( PDOException $e ){
+			exit( $e->getMessage() );
+			die();
+
+		}
+
+	}
+
 	public function index($type)
 	{
 		switch ($type) {
 			case 'man':
-				$pass = MAN_PAGE;
+				$pass = self::MAN_PAGE;
 				break;
 
 			case 'woman':
-				$pass = WOMAN_PAGE;
+				$pass = self::WOMAN_PAGE;
 				break;
 
 			case 'idea':
-				$pass = IDEA_PAGE;
-				break
+				$pass = self::IDEA_PAGE;
+				break;
+
 			default:
 				break;
 		}
 		$i=1;
 
-		$url = BASE_URL . $pass . '?p=' .$i;
+		$url = self::BASE_URL . $pass . '?p=' .$i;
 
 		$get_data = $this->exec($url);
-
 		while( count($get_data) >= 30 ){
 			error_log(count($get_data));
 			echo "<pre>";
@@ -45,6 +62,8 @@ class Tabs_shopping_scraping
 			$url = 'http://www.tabs-shopping.com/donna.html?p=' . $i;
 			error_log($url);
 			$get_data = $this->exec($url);
+			exit;
+			$this->insert_data($get_data);
 		}
 	}
 
@@ -110,6 +129,58 @@ class Tabs_shopping_scraping
 			$j++;
 		}
 		return $insert_data;
+	}
+
+	private function insert_data($insert_data)
+	{
+
+		//shopが存在しているかをチェック
+		if( $this->exist_record($insert_data) ){
+			$shop_id = 'hogehoge';
+
+		}else{
+			//まずはshopをインサートして、shop_idを取得
+
+			$shop_id = 'foo';
+		}
+
+		$query = "
+					INSERT INTO
+							product
+							(
+								id
+								url,
+								name,
+								shop_id,
+								brand,
+								price,
+								price_discount,
+								img
+							)
+							VALUES
+							(
+								''
+								:url,
+								:name,
+								:shop_id,
+								:brand,
+								:price,
+								:price_discount,
+								:img
+							)
+				";
+
+		$stmt = $pdo -> prepare($query);
+
+		$stmt->bindValue(':url', $name, PDO::PARAM_STR);
+		$stmt->bindValue(':name', $name, PDO::PARAM_STR);
+		$stmt->bindValue(':shop_id', $name, PDO::PARAM_INT);
+		$stmt->bindValue(':brand', $name, PDO::PARAM_STR);
+		$stmt->bindValue(':price', $name, PDO::PARAM_STR);
+		$stmt->bindValue(':price_discount', $name, PDO::PARAM_STR);
+		$stmt->bindValue(':img', 1, PDO::PARAM_STR);
+
+		$stmt->execute();
 	}
 }
 
