@@ -50,24 +50,19 @@ class Tabs_shopping_scraping
 		$i=1;
 
 		$url = self::BASE_URL . $pass . '?p=' .$i;
-
 		$get_data = $this->exec($url);
+		$this->insert_data($get_data);
+
 		while( count($get_data) >= 30 ){
-			error_log(count($get_data));
-			echo "<pre>";
-			var_dump($get_data);
-			echo "<pre>";
-			error_log(print_r($get_data,true));
 			$i++;
 			$url = 'http://www.tabs-shopping.com/donna.html?p=' . $i;
-			error_log($url);
-			$get_data = $this->exec($url);
-			exit;
+			$get_data = $this->exec($url,$type);
+
 			$this->insert_data($get_data);
 		}
 	}
 
-	private function exec($url)
+	private function exec($url,$type)
 	{
 		$html = file_get_contents($url);
 
@@ -87,8 +82,9 @@ class Tabs_shopping_scraping
 
 				if( $_key === 0 ){
 					$url = isset($_val['a']['@attributes']['href']) ? $_val['a']['@attributes']['href'] : NULL;
-					$insert_data[$j]['shop_name'] = 'tabs_shopping';
+					$insert_data[$j]['shop_id'] = 26;
 					$insert_data[$j]['url'] = $url;//商品URL
+					$insert_data[$j]['category_raw_1'] =
 
 					if( isset($url) ){
 						$_html = file_get_contents($url);
@@ -115,11 +111,11 @@ class Tabs_shopping_scraping
 																	: NULL;
 
 									$insert_data[$j]['price'] = isset($content['div'][0]['form']['div'][5]['div'][0]['div'][2]['p'][0]['span'][1])
-																	? $content['div'][0]['form']['div'][5]['div'][0]['div'][2]['p'][0]['span'][1]
+																	? trim($content['div'][0]['form']['div'][5]['div'][0]['div'][2]['p'][0]['span'][1])
 																	: NULL;
 
 									$insert_data[$j]['discount_price'] = isset($content['div'][0]['form']['div'][5]['div'][0]['div'][2]['p'][1]['span'][1])
-																			? $content['div'][0]['form']['div'][5]['div'][0]['div'][2]['p'][1]['span'][1]
+																			? trim($content['div'][0]['form']['div'][5]['div'][0]['div'][2]['p'][1]['span'][1])
 																			: NULL;
 							}
 						}
@@ -134,53 +130,66 @@ class Tabs_shopping_scraping
 	private function insert_data($insert_data)
 	{
 
-		//shopが存在しているかをチェック
-		if( $this->exist_record($insert_data) ){
-			$shop_id = 'hogehoge';
+		$query = "INSERT INTO product (url,name,shop_id,brand,price,price_discount,img) VALUES (?, ?, ?, ?, ?, ?, ?)";
+		$stmt = $this->pdo->prepare($query);
 
-		}else{
-			//まずはshopをインサートして、shop_idを取得
+		foreach ($insert_data as $key => $val) {
+			$update_id = $this->record_exists($val);
 
-			$shop_id = 'foo';
+			if( isset($update_id) ){
+				$this->update_record($update_id,$val);
+			}else{
+				$stmt->execute(
+								array(
+									$val['url'],
+									$val['name'],
+									$val['shop_id'],
+									$val['brand'],
+									$val['price'],
+									$val['discount_price'],
+									$val['img_url'],
+								)
+							);
+			}
 		}
+		return;
+	}
 
-		$query = "
-					INSERT INTO
-							product
-							(
-								id
-								url,
-								name,
-								shop_id,
-								brand,
-								price,
-								price_discount,
-								img
-							)
-							VALUES
-							(
-								''
-								:url,
-								:name,
-								:shop_id,
-								:brand,
-								:price,
-								:price_discount,
-								:img
-							)
-				";
+	private function record_exists($check_data)
+	{
+		$_name = mysql_real_escape_string($check_data['name']);
+		$_brand = mysql_real_escape_string($check_data['brand']);
 
-		$stmt = $pdo -> prepare($query);
+		$query = "SELECT product_id FROM product WHERE name = ? AND brand = ?";
+		$stmt = $this->pdo->prepare($query);
+		$stmt->execute(array($_name,$_brand));
+		$result = $stmt->fetch();
 
-		$stmt->bindValue(':url', $name, PDO::PARAM_STR);
-		$stmt->bindValue(':name', $name, PDO::PARAM_STR);
-		$stmt->bindValue(':shop_id', $name, PDO::PARAM_INT);
-		$stmt->bindValue(':brand', $name, PDO::PARAM_STR);
-		$stmt->bindValue(':price', $name, PDO::PARAM_STR);
-		$stmt->bindValue(':price_discount', $name, PDO::PARAM_STR);
-		$stmt->bindValue(':img', 1, PDO::PARAM_STR);
+		if( $result['product_id'] ){
+			return intval($result['product_id']);
+		}else{
+			return NULL;
+		}
+	}
 
-		$stmt->execute();
+	private function update_record($update_id,$update_data)
+	{
+		$query = "UPDATE product SET url = ?, name = ?, brand = ?, price = ?, price_discount = ?, img = ? WHERE product_id = ?";
+
+		$stmt = $this->pdo->prepare($query);
+		$result = $stmt->execute(
+						array(
+							$update_data['url'],
+							$update_data['name'],
+							$update_data['brand'],
+							$update_data['price'],
+							$update_data['discount_price'],
+							$update_data['img_url'],
+							$update_id
+						)
+					);
+
+		return $result;
 	}
 }
 
