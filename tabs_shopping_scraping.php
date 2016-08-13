@@ -59,6 +59,7 @@ class Tabs_shopping_scraping
 			$get_data = $this->exec($url,$type);
 
 			$this->insert_data($get_data);
+			exit;
 		}
 	}
 
@@ -84,7 +85,6 @@ class Tabs_shopping_scraping
 					$url = isset($_val['a']['@attributes']['href']) ? $_val['a']['@attributes']['href'] : NULL;
 					$insert_data[$j]['shop_id'] = 26;
 					$insert_data[$j]['url'] = $url;//商品URL
-					$insert_data[$j]['category_raw_1'] =
 
 					if( isset($url) ){
 						$_html = file_get_contents($url);
@@ -130,7 +130,7 @@ class Tabs_shopping_scraping
 	private function insert_data($insert_data)
 	{
 
-		$query = "INSERT INTO product (url,name,shop_id,brand,price,price_discount,img) VALUES (?, ?, ?, ?, ?, ?, ?)";
+		$query = "INSERT INTO product (url, name, shop_id, brand, price, price_discount, img, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, now())";
 		$stmt = $this->pdo->prepare($query);
 
 		foreach ($insert_data as $key => $val) {
@@ -174,7 +174,7 @@ class Tabs_shopping_scraping
 
 	private function update_record($update_id,$update_data)
 	{
-		$query = "UPDATE product SET url = ?, name = ?, brand = ?, price = ?, price_discount = ?, img = ? WHERE product_id = ?";
+		$query = "UPDATE product SET url = ?, name = ?, brand = ?, price = ?, price_discount = ?, img = ?, updated_at = now() WHERE product_id = ?";
 
 		$stmt = $this->pdo->prepare($query);
 		$result = $stmt->execute(
