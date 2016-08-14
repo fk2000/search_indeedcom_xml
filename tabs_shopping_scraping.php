@@ -40,14 +40,16 @@ class Tabs_shopping_scraping
 
 			//2ページ以上のページが存在する場合は、更に次ページのスクレイピングを実行
 			if( $is_next ){
-
 				//取得した商品データの配列の数が30未満の場合は、そのページがラストページであると判断し、スクレイピングを終える。
 				//ラストページへ行くまで上と同様の処理を繰り返し行う。
-				while( count($get_data) >= 30 ){
+				$is_last = false;
+				while( count($get_data) >= 30 && !$is_last){
 					$i++;
 					$url = $val . '?p=' .$i;
 					$get_data = $this->exec($url);
 					$this->insert_data($get_data);
+
+					$is_last = $this->is_last_page($url,$i);
 				}
 			}
 		}
@@ -60,12 +62,7 @@ class Tabs_shopping_scraping
 	 */
 	private function get_scraping_contents()
 	{
-		$html = file_get_contents(self::BASE_URL);
-		$dom = new DOMDocument();
-		@$dom->loadHTML($html);
-		$xml = simplexml_import_dom($dom);
-		$json = json_encode($xml);
-		$scraped_data_array = json_decode($json,true);
+		$scraped_data_array = $this->get_scraped_data(self::BASE_URL);
 
 		$data = array();
 
@@ -101,15 +98,21 @@ class Tabs_shopping_scraping
 	 */
 	private function is_next_page($url)
 	{
-		$html = file_get_contents($url);
-		$dom = new DOMDocument();
-		@$dom->loadHTML($html);
-		$xml = simplexml_import_dom($dom);
-		$div = $xml->xpath("//div[@class='pages']");
-		$json = json_encode($div);
-		$scraped_data_array = json_decode($json,true);
+		$scraped_data_array = $this->get_scraped_data($url,"//div[@class='pages']");
 
 		if( !empty($scraped_data_array) ){
+			return true;
+		}else{
+			return false;
+		}
+	}
+
+	//現在のページが最終ページかを調べる。
+	private function is_last_page($url,$current_page_num)
+	{
+		$scraped_data_array = $this->get_scraped_data($url,"//div[@class='pages']");
+		$last_page_data = end($scraped_data_array[1]['ol']['li']);
+		if( !is_array($last_page_data) && intval($last_page_data) === $current_page_num ){
 			return true;
 		}else{
 			return false;
@@ -124,13 +127,7 @@ class Tabs_shopping_scraping
 	 */
 	private function exec($url)
 	{
-		$html = file_get_contents($url);
-		$dom = new DOMDocument();
-		@$dom->loadHTML($html);
-		$xml = simplexml_import_dom($dom);
-		$div = $xml->xpath("//div[@class='breadcrumbs']");
-		$json = json_encode($div);
-		$scraped_data_array = json_decode($json,true);
+		$scraped_data_array = $this->get_scraped_data($url,"//div[@class='breadcrumbs']");
 
 		$category_array = array();
 		foreach ($scraped_data_array[0]['ul']['li'] as $key => $val) {
@@ -139,12 +136,7 @@ class Tabs_shopping_scraping
 			}
 		}
 
-		$dom = new DOMDocument();
-		@$dom->loadHTML($html);
-		$xml = simplexml_import_dom($dom);
-		$div = $xml->xpath("//div[@class='view-content']");
-		$json = json_encode($div);
-		$scraped_data_array = json_decode($json,true);
+		$scraped_data_array = $this->get_scraped_data($url,"//div[@class='view-content']");
 
 		$insert_data = array();
 		$j = 0;
@@ -164,13 +156,7 @@ class Tabs_shopping_scraping
 
 					if( isset($url) ){
 
-						$_html = file_get_contents($url);
-						$_dom = new DOMDocument();
-						@$_dom->loadHTML($_html);
-						$_xml = simplexml_import_dom($_dom);
-						$_div = $_xml->xpath("//div[@class='product-view']");
-						$_json = json_encode($_div);
-						$_scraped_data_array = json_decode($_json,true);
+						$_scraped_data_array = $this->get_scraped_data($url,"//div[@class='product-view']");
 
 						foreach ($_scraped_data_array as $__key => $content) {
 
@@ -222,6 +208,33 @@ class Tabs_shopping_scraping
 	}
 
 	/**
+	 * 指定されたURLをスクレイピングして、配列形式で内容を取得する。
+	 * @param  [type] $url  [description]
+	 * @param  [type] $pass [description]
+	 * @return [type]       [description]
+	 */
+	private function get_scraped_data($url,$pass=NULL)
+	{
+		$html = @file_get_contents($url);
+		if( !$html ){
+			error_log('error');
+			exit;
+		}
+
+		$dom = new DOMDocument();
+		@$dom->loadHTML($html);
+		$xml = simplexml_import_dom($dom);
+		if( isset($pass) ){
+			$div = $xml->xpath($pass);
+			$json = json_encode($div);
+		}else{
+			$json = json_encode($xml);
+		}
+
+		return json_decode($json,true);
+	}
+
+	/**
 	 * 商品データをチェックして、DBに保存。
 	 * @param  [type] $insert_data [description]
 	 * @return [type]              [description]
@@ -243,22 +256,27 @@ class Tabs_shopping_scraping
 			}else{
 				var_dump('INSERT!');
 				//INSERT実行
-				$stmt->execute(
-								array(
-									$val['url'],
-									$val['name'],
-									$val['shop_id'],
-									$val['brand'],
-									$val['category'][0],
-									$val['category'][1],
-									$val['category'][2],
-									$val['category'][3],
-									$val['category'][4],
-									$val['price'],
-									$val['discount_price'],
-									$val['img_url'],
-								)
-							);
+				try{
+					$stmt->execute(
+									array(
+										$val['url'],
+										$val['name'],
+										$val['shop_id'],
+										$val['brand'],
+										$val['category'][0],
+										$val['category'][1],
+										$val['category'][2],
+										$val['category'][3],
+										$val['category'][4],
+										$val['price'],
+										$val['discount_price'],
+										$val['img_url'],
+									)
+								);
+				}catch( Exception $e ){
+					echo "エラー:" . $e->getMessage();
+					exit;
+				}
 			}
 		}
 		return;
@@ -275,13 +293,18 @@ class Tabs_shopping_scraping
 		$query = "SELECT product_id FROM product WHERE url = ?";
 
 		$stmt = $this->pdo->prepare($query);
-		$stmt->execute(array($check_data['url'],$check_data['name'],$check_data['brand']));
-		$result = $stmt->fetch();
+		try{
+			$stmt->execute(array($check_data['url']));
+			$result = $stmt->fetch();
 
-		if( $result['product_id'] ){
-			return intval($result['product_id']);
-		}else{
-			return NULL;
+			if( $result['product_id'] ){
+				return intval($result['product_id']);
+			}else{
+				return NULL;
+			}
+		}catch( Exception $e ){
+			echo "エラー:" . $e->getMessage();
+			exit;
 		}
 	}
 
@@ -296,23 +319,29 @@ class Tabs_shopping_scraping
 		$query = "UPDATE product SET url = ?, name = ?, brand = ?, category_raw_1 = ?, category_raw_2 = ?, category_raw_3 = ?, category_raw_4 = ?, category_raw_5 = ?, price = ?, price_discount = ?, img = ?, updated_at = now() WHERE product_id = ?";
 
 		$stmt = $this->pdo->prepare($query);
-		$result = $stmt->execute(
-						array(
-							$update_data['url'],
-							$update_data['name'],
-							$update_data['brand'],
-							$update_data['category'][0],
-							$update_data['category'][1],
-							$update_data['category'][2],
-							$update_data['category'][3],
-							$update_data['category'][4],
-							$update_data['price'],
-							$update_data['discount_price'],
-							$update_data['img_url'],
-							$update_id
-						)
-					);
-		return $result;
+
+		try{
+			$result = $stmt->execute(
+							array(
+								$update_data['url'],
+								$update_data['name'],
+								$update_data['brand'],
+								$update_data['category'][0],
+								$update_data['category'][1],
+								$update_data['category'][2],
+								$update_data['category'][3],
+								$update_data['category'][4],
+								$update_data['price'],
+								$update_data['discount_price'],
+								$update_data['img_url'],
+								$update_id
+							)
+						);
+			return $result;
+		}catch( Exception $e ){
+			echo "エラー:" . $e->getMessage();
+			exit;
+		}
 	}
 }
 
