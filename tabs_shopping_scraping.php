@@ -6,6 +6,8 @@ $scraping_obj->index();
 class Tabs_shopping_scraping
 {
 	const BASE_URL = "http://www.tabs-shopping.com/";
+	const LOGIN_PAGE_URL = "http://www.tabs-shopping.com/customer/account/login";
+	const POST_URL = "http://www.tabs-shopping.com/customer/account/loginPost/";
 
 	private $pdo;
 
@@ -20,9 +22,58 @@ class Tabs_shopping_scraping
 		}catch( PDOException $e ){
 			exit( $e->getMessage() );
 			die();
-
 		}
+
+		$cookie_file_path = './cookie.txt';
+		touch($cookie_file_path);
+		$this->move_login_page($cookie_file_path);
+		$this->login($cookie_file_path);
+		// exit;
+		unlink($cookie_file_path);
+		exit;
 	}
+
+	public function move_login_page($file_path)
+	{
+
+		$ch = curl_init();
+		curl_setopt($ch, CURLOPT_URL, self::LOGIN_PAGE_URL);
+		curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+		curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+		curl_setopt($ch, CURLOPT_FOLLOWLOCATION, TRUE);
+		curl_setopt($ch, CURLOPT_COOKIEFILE, $file_path);
+		curl_setopt($ch, CURLOPT_COOKIEJAR, $file_path);
+		$put = curl_exec($ch) or dir('error ' . curl_error($ch));
+		curl_close($ch);
+		return;
+	}
+
+	public function login($file_path)
+	{
+		$params = array(
+			 "login[username]" => '',
+			 "login[password]" => ''
+		);
+
+		$ch = curl_init();
+		curl_setopt($ch, CURLOPT_URL, self::POST_URL);
+		curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+		curl_setopt($ch, CURLOPT_HEADER, TRUE);
+		curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+		curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+		curl_setopt($ch, CURLOPT_COOKIEFILE, $file_path);
+		curl_setopt($ch, CURLOPT_COOKIEJAR, $file_path);
+		curl_setopt($ch, CURLOPT_POST, TRUE);
+		curl_setopt($ch, CURLOPT_POSTFIELDS, $params);
+		$output = curl_exec($ch) or dir('error ' . curl_error($ch));
+		curl_close($ch);
+		echo "<pre>";
+		var_dump($output);
+		echo "<pre>";
+		exit;
+		return ;
+	}
+
 
 	public function index()
 	{
