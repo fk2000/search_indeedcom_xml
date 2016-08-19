@@ -1,7 +1,11 @@
 <?php
-$scraping_obj = new Tabs_shopping_scraping();
+$cookie_file_path = tempnam(sys_get_temp_dir(),'cookie_');
 
-$scraping_obj->index();
+$scraping_obj = new Tabs_shopping_scraping($cookie_file_path);
+$cookie_file_path = $scraping_obj->index();
+
+//最終的に残ったクッキーを削除する。
+unlink($cookie_file_path);
 
 class Tabs_shopping_scraping
 {
@@ -10,12 +14,13 @@ class Tabs_shopping_scraping
 	const POST_URL = "http://www.tabs-shopping.com/customer/account/loginPost/";
 
 	private $pdo;
+	private $cookie;
 
-	function __construct() {
-
+	function __construct($cookie_file_path = '') {
+		$this->cookie = $cookie_file_path;
 		//DBに接続
 		try{
-			$dsn = 'mysql:dbname=vagrant_db;host=localhost;charset=utf8';
+			$dsn = 'mysql:dbname=vagrant;host=localhost;charset=utf8';
 			$user = 'root';
 			$password = '';
 			$this->pdo = new PDO($dsn, $user, $password);
@@ -23,57 +28,48 @@ class Tabs_shopping_scraping
 			exit( $e->getMessage() );
 			die();
 		}
-
-		$cookie_file_path = './cookie.txt';
-		touch($cookie_file_path);
-		$this->move_login_page($cookie_file_path);
+		$scraped_data_array = $this->move_login_page($cookie_file_path);
 		$this->login($cookie_file_path);
-		// exit;
-		unlink($cookie_file_path);
-		exit;
 	}
 
 	public function move_login_page($file_path)
 	{
-
 		$ch = curl_init();
 		curl_setopt($ch, CURLOPT_URL, self::LOGIN_PAGE_URL);
 		curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-		curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-		curl_setopt($ch, CURLOPT_FOLLOWLOCATION, TRUE);
+		curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+		curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
 		curl_setopt($ch, CURLOPT_COOKIEFILE, $file_path);
 		curl_setopt($ch, CURLOPT_COOKIEJAR, $file_path);
 		$put = curl_exec($ch) or dir('error ' . curl_error($ch));
 		curl_close($ch);
+
+		sleep(5);
 		return;
 	}
 
 	public function login($file_path)
 	{
 		$params = array(
-			 "login[username]" => '',
-			 "login[password]" => ''
+			 "login[username]" => 'hogehoge',
+			 "login[password]" => 'hogehoge',
 		);
-
 		$ch = curl_init();
 		curl_setopt($ch, CURLOPT_URL, self::POST_URL);
 		curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-		curl_setopt($ch, CURLOPT_HEADER, TRUE);
-		curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+		curl_setopt($ch, CURLOPT_HEADER, true);
+		curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 		curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
 		curl_setopt($ch, CURLOPT_COOKIEFILE, $file_path);
 		curl_setopt($ch, CURLOPT_COOKIEJAR, $file_path);
-		curl_setopt($ch, CURLOPT_POST, TRUE);
+		curl_setopt($ch, CURLOPT_POST, true);
 		curl_setopt($ch, CURLOPT_POSTFIELDS, $params);
 		$output = curl_exec($ch) or dir('error ' . curl_error($ch));
 		curl_close($ch);
-		echo "<pre>";
-		var_dump($output);
-		echo "<pre>";
-		exit;
+
+		sleep(5);
 		return ;
 	}
-
 
 	public function index()
 	{
@@ -81,8 +77,7 @@ class Tabs_shopping_scraping
 
 		foreach ($get_contents as $key => $val) {
 			$i=1;
-			$url = $val . '?p=' .$i;
-
+			$url = $val . '?p=' . $i ;
 			$is_next = $this->is_next_page($url);
 
 			//1ページ目のスクレイピングを実行
@@ -96,7 +91,7 @@ class Tabs_shopping_scraping
 				$is_last = false;
 				while( count($get_data) >= 30 && !$is_last){
 					$i++;
-					$url = $val . '?p=' .$i;
+					$url = $val . '?p=' . $i;
 					$get_data = $this->exec($url);
 					$this->insert_data($get_data);
 
@@ -104,6 +99,7 @@ class Tabs_shopping_scraping
 				}
 			}
 		}
+		return $this->cookie;
 	}
 
 
@@ -116,7 +112,6 @@ class Tabs_shopping_scraping
 		$scraped_data_array = $this->get_scraped_data(self::BASE_URL);
 
 		$data = array();
-
 		//カテゴリwoman以下のサブカテゴリのURLを取得
 		foreach ($scraped_data_array['body']['div'][2]['div']['ul']['li'][1]['ul']['li'][0]['ul']['li'] as $key => $val) {
 			$data[] = $val['a']['@attributes']['href'];
@@ -201,14 +196,27 @@ class Tabs_shopping_scraping
 						$insert_data[$j]['category'][$k] = isset($category_array[$k]) ? $category_array[$k] : NULL;
 					}
 
-					$url = isset($_val['a']['@attributes']['href']) ? $_val['a']['@attributes']['href'] : NULL;
+					$product_url = isset($_val['a']['@attributes']['href']) ? $_val['a']['@attributes']['href'] : NULL;
+					$_url = $product_url . '?___store=en';
+					// $_url = 'http://www.tabs-shopping.com/abito-over-in-fantasia-isola-marras-t9309tsxj891c91.html?___store=en';
 					$insert_data[$j]['shop_id'] = 26;
-					$insert_data[$j]['url'] = $url;//商品URL
+					$insert_data[$j]['url'] = $_url;//商品URL
 
-					if( isset($url) ){
+					if( isset($_url) && isset($product_url) ){
 
-						$_scraped_data_array = $this->get_scraped_data($url,"//div[@class='product-view']");
+						$_scraped_data_array = $this->get_scraped_data($_url,"//div[@class='product-view']");
 
+						//?___store=enを末尾につけたURLが存在しなかった場合
+						if( !isset($_scraped_data_array) ){
+							$insert_data[$j]['url'] = $product_url;
+							$_scraped_data_array = $this->get_scraped_data($product_url,"//div[@class='product-view']");
+						}
+						if( !isset($_scraped_data_array) ){
+							return;
+						}
+						$now = date("[Y/m/d H:i:s:]");
+						print( $now . ' ' . $insert_data[$j]['url'] );
+						echo "\n";
 						foreach ($_scraped_data_array as $__key => $content) {
 
 							if( $__key === 0 ){
@@ -266,12 +274,19 @@ class Tabs_shopping_scraping
 	 */
 	private function get_scraped_data($url,$pass=NULL)
 	{
-		$html = @file_get_contents($url);
-		if( !$html ){
-			error_log('error');
-			exit;
-		}
 
+		$ch=curl_init();
+		curl_setopt($ch,CURLOPT_URL,$url);
+		curl_setopt($ch,CURLOPT_RETURNTRANSFER,true);
+		curl_setopt($ch,CURLOPT_COOKIEFILE,$this->cookie);
+		curl_setopt($ch,CURLOPT_COOKIEJAR, $this->cookie);
+		curl_setopt($ch,CURLOPT_FOLLOWLOCATION,true);
+		$html=curl_exec($ch);
+		curl_close($ch);
+		if( !$html ){
+			return NULL;
+		}
+		sleep(5);
 		$dom = new DOMDocument();
 		@$dom->loadHTML($html);
 		$xml = simplexml_import_dom($dom);
@@ -281,7 +296,6 @@ class Tabs_shopping_scraping
 		}else{
 			$json = json_encode($xml);
 		}
-
 		return json_decode($json,true);
 	}
 
@@ -297,15 +311,20 @@ class Tabs_shopping_scraping
 		$stmt = $this->pdo->prepare($query);
 
 		foreach ($insert_data as $key => $val) {
+
 			$update_id = $this->record_exists($val);
-			var_dump("CEHCK!");
+			if( !$this->validation_check($val) ){
+				// 再ログイン
+				unlink($this->cookie);
+				$this->cookie = tempnam(sys_get_temp_dir(),'cookie_');
+				$this->move_login_page($this->cookie);
+				$this->login($this->cookie);
+				return;
+			}
 
 			if( isset($update_id) ){
-				var_dump("UPDATE!");
-
 				$this->update_record($update_id,$val);
 			}else{
-				var_dump('INSERT!');
 				//INSERT実行
 				try{
 					$stmt->execute(
@@ -370,7 +389,6 @@ class Tabs_shopping_scraping
 		$query = "UPDATE product SET url = ?, name = ?, brand = ?, category_raw_1 = ?, category_raw_2 = ?, category_raw_3 = ?, category_raw_4 = ?, category_raw_5 = ?, price = ?, price_discount = ?, img = ?, updated_at = now() WHERE product_id = ?";
 
 		$stmt = $this->pdo->prepare($query);
-
 		try{
 			$result = $stmt->execute(
 							array(
@@ -392,6 +410,20 @@ class Tabs_shopping_scraping
 		}catch( Exception $e ){
 			echo "エラー:" . $e->getMessage();
 			exit;
+		}
+	}
+
+	/**
+	 * 商品詳細データが取得できているかを調べる
+	 * @param  [type] $data [description]
+	 * @return [type]       [description]
+	 */
+	private function validation_check($data)
+	{
+		if( !isset($data['name']) || !isset($data['brand']) || !isset($data['price']) ){
+			return false;
+		}else{
+			return true;
 		}
 	}
 }
