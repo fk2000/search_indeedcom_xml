@@ -9,9 +9,9 @@ unlink($cookie_file_path);
 
 class Tabs_shopping_scraping
 {
-	const BASE_URL = "http://www.tabs-shopping.com/";
-	const LOGIN_PAGE_URL = "http://www.tabs-shopping.com/customer/account/login";
-	const POST_URL = "http://www.tabs-shopping.com/customer/account/loginPost/";
+	const BASE_URL = "";
+	const LOGIN_PAGE_URL = "";
+	const POST_URL = "";
 
 	private $pdo;
 	private $cookie;
@@ -20,7 +20,7 @@ class Tabs_shopping_scraping
 		$this->cookie = $cookie_file_path;
 		//DBに接続
 		try{
-			$dsn = 'mysql:dbname=vagrant;host=localhost;charset=utf8';
+			$dsn = 'mysql:dbname=vagrant_db;host=localhost;charset=utf8';
 			$user = 'root';
 			$password = '';
 			$this->pdo = new PDO($dsn, $user, $password);
@@ -51,8 +51,8 @@ class Tabs_shopping_scraping
 	public function login($file_path)
 	{
 		$params = array(
-			 "login[username]" => 'hogehoge',
-			 "login[password]" => 'hogehoge',
+			 "login[username]" => '',
+			 "login[password]" => '',
 		);
 		$ch = curl_init();
 		curl_setopt($ch, CURLOPT_URL, self::POST_URL);
