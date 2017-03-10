@@ -57,7 +57,7 @@ echo "<h1>Indeed.com - Search Sample</h1>\n";
 $query = $_GET["query"]; //検索文字列を設定
 $location = $_GET["location"]; //勤務地を設定
 
-//ライブドアの天気予報を表示する関数をコールする
+//検索結果を表示する関数をコールする
 echo search_indeed($query,$location);
 
 ?>
