@@ -1,4 +1,4 @@
-#Read Indeed.com XMLfeed
+#Search Indeed.com XML
 
 [![Website](https://img.shields.io/website-up-down-green-red/http/shields.io.svg)](http://www.kichij.org/read_indeed_com/)
 
