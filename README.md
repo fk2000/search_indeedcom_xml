@@ -7,4 +7,4 @@
 Indeed.comの求人情報を検索した結果を表示するPHP
 
 ##Usage
-+ publisher.phpを作成し、パブリッシャー IDを自身のものに変更する。
++ publisher.phpを作成し、自身のパブリッシャー IDをINDEEDCOM_PUBLISHERに設定する。
