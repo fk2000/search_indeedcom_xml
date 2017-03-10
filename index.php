@@ -11,15 +11,11 @@ src="http://gdc.indeed.com/ads/apiresults.js"></script>
 
 require_once("publisher.php");
 
-//ライブドアの天気予報を表示する関数
+//検索結果を表示する関数
 function search_indeed($query,$location){
 
   //XMLデータ取得用ベースURL
   $req = "http://api.indeed.com/ads/apisearch?publisher=".INDEEDCOM_PUBLISHER."&q=".$query."&l=".$location."&sort=&radius=&st=employer&jt=&start=&limit=&fromage=&filter=&latlong=1&co=jp&chnl=&userip=1.2.3.4&useragent=Mozilla/%2F4.0%28Firefox%29&v=2";
-  //$req = "http://api.indeed.com/ads/apigetjobs?publisher=5138241454203000&jobkeys=5e50b56a7e69073c&v=2"
-
-  //XMLデータ取得用リクエストURL生成
-  //$req .= "?city=".$city."&day=".$day;
   
   //XMLファイルをパースし、オブジェクトを取得
   $xml = simplexml_load_file($req)
@@ -29,20 +25,15 @@ function search_indeed($query,$location){
   echo '<p>query:'.$xml->query.'</p>';
   echo '<p>location:'.$xml->location.'</p>';
   echo '<p>results:'.$xml->results->result->count().'</p>';
-//  $results = $xm->results;
-
   $ret = '<div class="lwws">';
   foreach($xml->results->result as $result) {
     $ret .= "<div><a href='".$result[0]->url."'>".$result[0]->jobtitle."</a></div>";
-    //$ret .= "<div>".$result[0]->jobkey."</div>";
 
-    $jobreq = "http://api.indeed.com/ads/apigetjobs?publisher=".INDEEDCOM_PUBLISHER."&jobkeys=".$result[0]->jobkey."&v=2";
-	$jobxml = simplexml_load_file($jobreq)
-     or die("job XMLパースエラー");
+    //$jobreq = "http://api.indeed.com/ads/apigetjobs?publisher=".INDEEDCOM_PUBLISHER."&jobkeys=".$result[0]->jobkey."&v=2";
+	//$jobxml = simplexml_load_file($jobreq)
+    // or die("job XMLパースエラー");
 
-    echo "<p>".$jobxml."</p>";
-
-
+    //echo "<p>".$jobxml."</p>";
 
   }
   $ret .= "</div>";
