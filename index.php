@@ -1,7 +1,7 @@
 <html>
 <head>
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-  <title>xml parse sample</title>
+  <title>Indeed.com - Search Sample</title>
   <script type="text/javascript"
 src="http://gdc.indeed.com/ads/apiresults.js"></script>
                                     
@@ -54,13 +54,18 @@ function search_indeed($query,$location){
 echo "<h1>Indeed.com - Search Sample</h1>\n";
 
 //リクエストパラメータ設定
-$query = "イレブンナイン株式会社"; //検索文字列を設定
-$location = "東中野"; //勤務地を設定
+$query = $_GET["query"]; //検索文字列を設定
+$location = $_GET["location"]; //勤務地を設定
 
 //ライブドアの天気予報を表示する関数をコールする
 echo search_indeed($query,$location);
 
 ?>
+<form action = "index.php" method = "get">
+<input type = "text" name ="query"><br/>
+<input type = "text" name ="location"><br/>
+<input type = "submit" value ="検索">
+</form>
 <HR>
 <span id="indeed_at"><a title="求人検索" href="https://jp.indeed.com"><img alt=Indeed src="https://www.indeed.com/p/jobsearch.gif" style="border: 0; vertical-align: middle;"> からの求人</a></span>
 </body>
